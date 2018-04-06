@@ -1,5 +1,8 @@
 # coding=utf-8
+import glob
 from argparse import ArgumentParser
+
+from unit.processor import Processor
 
 
 def create_arg_parser() -> ArgumentParser:
@@ -9,7 +12,12 @@ def create_arg_parser() -> ArgumentParser:
 
 
 def main() -> int:
-    pass
+    processor = Processor(
+        glob.glob('data/*.tif'),  # sys.argv[1:],
+        './'
+    )
+
+    return processor.run()
 
 
 if __name__ == '__main__':
