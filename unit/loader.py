@@ -10,7 +10,7 @@ from .exceptions import ImageNotFoundError
 
 
 class Loader(object):
-    def __init__(self, paths: Iterable[str]):
+    def __init__(self, *paths: str):
         self._paths = paths
 
     def load_images(self) -> Generator[np.ndarray, None, None]:

@@ -3,13 +3,13 @@
 import csv
 
 from unit.exporters.base import BaseExporter
+from unit.particle import Particle
 
 
 class CsvExporter(BaseExporter):
     """
     Exports particles as CSV format into given fileobj.
     """
-    HEADER_FIELD_NAMES = ['Part #', 'Width', 'Height', 'Max Length', 'Thickness']
 
     def export(self):
         writer = csv.writer(
@@ -17,7 +17,7 @@ class CsvExporter(BaseExporter):
             dialect='excel',
         )
 
-        writer.writerow(self.HEADER_FIELD_NAMES)
+        writer.writerow(Particle.HEADER_FIELD_NAMES)
         writer.writerows(
             (i, p.width, p.height, p.max_length, p.thickness)
             for i, p

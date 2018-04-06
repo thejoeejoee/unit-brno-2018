@@ -20,7 +20,7 @@ class ParticlesComparator(object):
         loader = csv.reader(origin_particles_file)
         loaded_particles = []
         for particle_row in islice(loader, 1, None):
-            loaded_particles.append(Particle.from_row(particle_row[1:]))
+            loaded_particles.append(Particle.from_row(particle_row))
 
         loaded_particles = sorted(
             ((particle.max_length * particle.thickness), particle) for particle in loaded_particles

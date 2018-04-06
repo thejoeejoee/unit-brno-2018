@@ -2,6 +2,7 @@
 
 
 class Particle(object):
+    HEADER_FIELD_NAMES = ['Part #', 'Width', 'Height', 'Max Length', 'Thickness']
     width = 0  # type: int
     height = 0  # type: int
     max_length = 0.0  # type: float
@@ -15,6 +16,9 @@ class Particle(object):
 
     @classmethod
     def from_row(cls, row):
+        if len(row) > len(cls.HEADER_FIELD_NAMES):
+            row = row[1:]
+
         particle = cls()
         particle.width, particle.height, particle.max_length, particle.thickness = row
 
