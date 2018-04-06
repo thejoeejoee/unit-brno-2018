@@ -7,8 +7,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class HoughCircleDetector(object):
-    def __init__(self, grads: np.ndarray, thetas: np.ndarray, radius_range=(10, 40)):
-        self._grads = grads
+    def __init__(self, grads: np.ndarray, thetas: np.ndarray, radius_range=(30 // 5, 50 // 5)):
+        self._grads = grads[::5, ::5]
         self._thetas = thetas
         self._radius_range = radius_range
 
@@ -19,24 +19,25 @@ class HoughCircleDetector(object):
         H = np.zeros((shape[0], shape[1]))# + (max_radius - min_radius,))
 
         max_x, max_y = self._grads.shape[:2]
-        space = np.linspace(0, 2 * pi, 7)
-        space_n = len(space)
-        coss = [cos(r + pi) for r in space]
-        sins = [sin(r + pi) for r in space]
+        t = np.linspace(0, 2 * pi, 20)
+        coss = np.cos(t)
+        sins = np.sin(t)
 
         def gen_radius_f(rad):
             def bucketer(x, y):
                 x, y = int(x), int(y)
-                if self._grads[x, y] < 5:
+                if self._grads[x, y] < 40:
                     return False
 
-                for t in range(space_n):
-                    # radians = self._thetas[x, y]
-                    a = int(round(x - rad * coss[t]))
-                    b = int(round(y - rad * sins[t]))
-                    if 0 <= a < max_y and 0 <= b < max_x:
-                        H[a][b] += 1
+                def baf(row):
+                    aa = row[0]
+                    bb = row[1]
+                    if 0 <= aa < max_y and 0 <= bb < max_x:
+                        H[int(aa)][int(bb)] += 1
 
+                a = x - coss * rad
+                b = y - sins * rad
+                np.apply_along_axis(baf, 1, np.dstack((a, b))[0])
                 return True
 
             return bucketer
