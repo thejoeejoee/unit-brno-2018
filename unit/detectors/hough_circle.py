@@ -1,18 +1,16 @@
 # coding=utf-8
 from collections import defaultdict
 from math import pi
-from typing import DefaultDict
+from typing import DefaultDict, Dict
 
 import numpy as np
 from matplotlib import pyplot as plt
-
-from unit.filters.edge_detection import high_pass
-from unit.filters.erosion import erosion_filter
+from sympy import Circle, Point, intersection
 
 
 class HoughCircleDetector(object):
     GRADIENT_THRESHOLD = 40
-    RADIUS_RANGE = (50, 100)
+    RADIUS_RANGE = (60, 100)
 
     def __init__(
             self,
@@ -22,13 +20,14 @@ class HoughCircleDetector(object):
             vote_threshold=5
     ):
         self._scale = scale
-        self._image = image
+        self._image = image[::scale, ::scale]
         self._grads = grads[::scale, ::scale]
+        self._radius_range = self.RADIUS_RANGE[0] // scale, self.RADIUS_RANGE[1] // scale
         self._vote_threshold = vote_threshold
 
     def detect(self):
         shape = self._grads.shape
-        radius_shape_count = abs(self.RADIUS_RANGE[0] - self.RADIUS_RANGE[1])
+        radius_shape_count = abs(self._radius_range[0] + self._radius_range[1])
         H = np.zeros((radius_shape_count, shape[0], shape[1]))
 
         max_x, max_y = self._grads.shape[:2]
@@ -45,12 +44,33 @@ class HoughCircleDetector(object):
                     return False
 
                 def baf(row):
-                    aa = row[0]
-                    bb = row[1]
+                    aa = int(row[0])
+                    bb = int(row[1])
                     if 0 <= aa < max_y and 0 <= bb < max_x:
+                        print(self._image[aa, bb])
+                        if not self._image[aa, bb]:
+                            return
                         H[rad, int(aa), int(bb)] += 1
+
                         if H[rad, int(aa), int(bb)] > self._vote_threshold:
                             over[rad].add((aa, bb))
+
+                    try:
+                        H[rad, int(aa) + 1, int(bb)] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        H[rad, int(aa) - 1, int(bb)] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        H[rad, int(aa), int(bb) + 1] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        H[rad, int(aa), int(bb) - 1] += .25
+                    except IndexError:
+                        pass
 
                 a = x - coss * rad
                 b = y - sins * rad
@@ -59,7 +79,7 @@ class HoughCircleDetector(object):
 
             return bucketer
 
-        for rad in range(self.RADIUS_RANGE[0] // self._scale, self.RADIUS_RANGE[1] // self._scale):
+        for rad in range(self._radius_range[0], self._radius_range[1]):
             np.fromfunction(
                 np.vectorize(gen_radius_f(rad)),
                 shape=shape
@@ -80,9 +100,13 @@ class HoughCircleDetector(object):
         input()
         """
         print(over)
-        plt.imshow(erosion_filter(H[6, :, :], 3))
-        plt.show()
-        return
+
+        # plt.imshow(H[6, :, :])
+        # plt.show()
+
+        # self._filter_centers(over, self._grads)
+
+        # return
 
         def show_shape(patch):
             ax = plt.gca()
@@ -91,8 +115,48 @@ class HoughCircleDetector(object):
         plt.imshow(self._image)
         for rad, circles in over.items():
             for x, y in circles:
-                show_shape(plt.Circle((y * self._scale, x * self._scale), rad * self._scale, fc='none', ec='red'))
+                show_shape(plt.Circle((y, x), rad, fc='none', ec='red'))
 
         plt.axis('scaled')
 
+        plt.show()
+
+    def _filter_centers(self, over: Dict[int, set], grads: np.ndarray):
+        side = self._grads.shape[0]
+
+        entities = set()
+
+        for radius in sorted(over, reverse=True):
+            to_process = over.get(radius)
+
+            while to_process:
+                x, y = to_process.pop()
+                candidate_circle = Circle(Point(int(x), int(y)), int(radius))
+
+                if any(o.encloses(candidate_circle) for o in entities):
+                    continue
+
+                for maybe_collision in entities:
+                    if intersection(candidate_circle, maybe_collision):
+                        break
+                else:
+                    entities.add(candidate_circle)
+
+        def show_shape(patch):
+            ax = plt.gca()
+            ax.add_patch(patch)
+
+        plt.imshow(self._image)
+        for entity in entities:  # type: Circle
+            show_shape(
+                plt.Circle(
+                    (
+                        side // self._scale - entity.center.x,
+                        side // self._scale - entity.center.y  # + side // self._scale
+                    ),
+                    entity.radius,
+                    fc='none', ec='red')
+            )
+
+        plt.axis('scaled')
         plt.show()

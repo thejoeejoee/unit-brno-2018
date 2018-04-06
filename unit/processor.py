@@ -1,16 +1,17 @@
 # coding=utf-8
 from typing import Type, TextIO, Iterable
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy
 
-#from unit.detectors.gmm import GaussianMixtureModelDetector
+# from unit.detectors.gmm import GaussianMixtureModelDetector
 from unit.detectors.hough_circle import HoughCircleDetector
 from unit.exporters.base import BaseExporter
 from unit.exporters.csv import CsvExporter
-from unit.filters.edge_detection import gaussian_filter, sobel
-from unit.filters.threshold import threshold_image
+from unit.filters.edge_detection import gaussian_filter, sobel, sony
 from unit.filters.erosion import erosion_filter
+from unit.filters.threshold import threshold_image
 from unit.loader import Loader
 from unit.particle import Particle
 
@@ -43,13 +44,12 @@ class Processor(object):
 
         print(image.shape)
 
-
         image = threshold_image(image, 80)
         image = erosion_filter(image, 15)
         image = gaussian_filter(image)
         grads, thetas = sobel(image)
 
-
+        # grads = sony(image)
 
         HoughCircleDetector(
             image,
