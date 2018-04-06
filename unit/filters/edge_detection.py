@@ -33,3 +33,11 @@ def sobel(source: np.ndarray):
     grads = np.hypot(grad_x, grad_y)
     thetas = np.arctan2(grad_y, grad_x)
     return grads, thetas
+
+
+def high_pass(source: np.ndarray, a=1):
+    return generic_filter(source, np.matrix([
+        [-a, -a, -a],
+        [-a, 9 + 8 * a, -a],
+        [-a, -a, -a],
+    ])) * (1. / 9)

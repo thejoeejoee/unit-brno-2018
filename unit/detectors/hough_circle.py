@@ -1,39 +1,56 @@
 # coding=utf-8
-from math import pi, cos, sin
+from collections import defaultdict
+from math import pi
+from typing import DefaultDict
 
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+
+from unit.filters.edge_detection import high_pass
+from unit.filters.erosion import erosion_filter
 
 
 class HoughCircleDetector(object):
-    def __init__(self, grads: np.ndarray, thetas: np.ndarray, radius_range=(30 // 5, 50 // 5)):
-        self._grads = grads[::5, ::5]
-        self._thetas = thetas
-        self._radius_range = radius_range
+    GRADIENT_THRESHOLD = 40
+    RADIUS_RANGE = (50, 100)
+
+    def __init__(
+            self,
+            image,
+            grads: np.ndarray,
+            scale=10,
+            vote_threshold=5
+    ):
+        self._scale = scale
+        self._image = image
+        self._grads = grads[::scale, ::scale]
+        self._vote_threshold = vote_threshold
 
     def detect(self):
         shape = self._grads.shape
-
-        min_radius, max_radius = self._radius_range
-        H = np.zeros((shape[0], shape[1]))# + (max_radius - min_radius,))
+        radius_shape_count = abs(self.RADIUS_RANGE[0] - self.RADIUS_RANGE[1])
+        H = np.zeros((radius_shape_count, shape[0], shape[1]))
 
         max_x, max_y = self._grads.shape[:2]
         t = np.linspace(0, 2 * pi, 20)
         coss = np.cos(t)
         sins = np.sin(t)
 
+        over = defaultdict(set)  # type: DefaultDict[set]
+
         def gen_radius_f(rad):
             def bucketer(x, y):
                 x, y = int(x), int(y)
-                if self._grads[x, y] < 40:
+                if self._grads[x, y] < self.GRADIENT_THRESHOLD:
                     return False
 
                 def baf(row):
                     aa = row[0]
                     bb = row[1]
                     if 0 <= aa < max_y and 0 <= bb < max_x:
-                        H[int(aa)][int(bb)] += 1
+                        H[rad, int(aa), int(bb)] += 1
+                        if H[rad, int(aa), int(bb)] > self._vote_threshold:
+                            over[rad].add((aa, bb))
 
                 a = x - coss * rad
                 b = y - sins * rad
@@ -42,32 +59,17 @@ class HoughCircleDetector(object):
 
             return bucketer
 
-        for rad in range(*self._radius_range):
+        for rad in range(self.RADIUS_RANGE[0] // self._scale, self.RADIUS_RANGE[1] // self._scale):
             np.fromfunction(
                 np.vectorize(gen_radius_f(rad)),
                 shape=shape
             )
 
-        # result = [[0 for i in range(max_x)] for _ in range(max_y)]
-        # for y in range(max_x):
-        #     for x in range(max_y):
-        #         if self._grads[y][x] > 5:
-        #             for t in np.linspace(0, 2 * pi, 360):
-        #                 # t = theta[y][x]
-        #                 radius = 40
-        #                 a = round(x - radius * cos(t))
-        #                 b = round(y - radius * sin(t))
-        #                 if 0 <= a < max_y and 0 <= b < max_x:
-        #                     result[a][b] += 1
-
-        plt.imshow(H)
-        plt.show()
-        return
-
+        """
         fig = plt.figure()
         ax = Axes3D(fig)
 
-        xaxis, yxis, zaxis = H.nonzero()
+        yxis, zaxis, xaxis = H.nonzero()
 
         ax.scatter(
             xaxis,
@@ -76,3 +78,21 @@ class HoughCircleDetector(object):
         )
         fig.show()
         input()
+        """
+        print(over)
+        plt.imshow(erosion_filter(H[6, :, :], 3))
+        plt.show()
+        return
+
+        def show_shape(patch):
+            ax = plt.gca()
+            ax.add_patch(patch)
+
+        plt.imshow(self._image)
+        for rad, circles in over.items():
+            for x, y in circles:
+                show_shape(plt.Circle((y * self._scale, x * self._scale), rad * self._scale, fc='none', ec='red'))
+
+        plt.axis('scaled')
+
+        plt.show()

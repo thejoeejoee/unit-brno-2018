@@ -41,23 +41,19 @@ class Processor(object):
     def _detect_particles(self, image: numpy.ndarray) -> Iterable[Particle]:
         # TODO: use filters and all magic around to resolve image particles
 
-        plt.subplot(221)
         print(image.shape)
 
-        plt.imshow(image, cmap='gray')
 
         image = threshold_image(image, 80)
         image = erosion_filter(image, 15)
         image = gaussian_filter(image)
         grads, thetas = sobel(image)
-        plt.subplot(222)
-        plt.imshow(grads, cmap='gray')
 
-        plt.show()
 
-        plt.subplot(223)
+
         HoughCircleDetector(
-            grads, thetas
+            image,
+            grads
         ).detect()
 
         return []
