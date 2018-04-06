@@ -1,4 +1,5 @@
 # coding=utf-8
+import copy
 from collections import defaultdict, namedtuple
 from math import pi
 from typing import DefaultDict, Dict
@@ -8,9 +9,10 @@ from matplotlib import pyplot as plt
 
 Circle = namedtuple('Circle', 'x y radius')
 
+
 class HoughCircleDetector(object):
     GRADIENT_THRESHOLD = 40
-    RADIUS_RANGE = (25, 120)
+    RADIUS_RANGE = (10, 120)
 
     def __init__(
             self,
@@ -124,50 +126,99 @@ class HoughCircleDetector(object):
         side = self._grads.shape[0]
 
         entities = set()
+        main_components = set()
+        radius_count = len(over)
 
-        for radius in sorted(over, reverse=True):
-            to_process = over.get(radius)
+        for radius in sorted(over, reverse=True)[:int(radius_count // 1.5)]:
+            to_process = list(over.get(radius))
 
             while to_process:
                 x, y = to_process.pop()
                 candidate_circle = Circle(int(x), int(y), int(radius))
 
-                CIRCLE_THRESHOLD_RATIO = -0.25
+                CIRCLE_THRESHOLD_RATIO = 0.1
 
-                def is_too_near(c1: Circle, c2: Circle) -> bool:
-                    dist = ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
-                    R = c1.radius + c2.radius
-                    return (dist - R) < CIRCLE_THRESHOLD_RATIO * R
-
-                if any(is_too_near(candidate_circle, c) for c in entities):
+                if any(self.is_too_near(candidate_circle, c, CIRCLE_THRESHOLD_RATIO) for c in main_components):
                     continue
 
-                entities.add(candidate_circle)
+                main_components.add(candidate_circle)
 
-                # if any(o.encloses(candidate_circle) for o in entities):
-                #     continue
-                #
-                # for maybe_collision in entities:
-                #     if intersection(candidate_circle, maybe_collision):
-                #         break
-                # else:
-                #     entities.add(candidate_circle)
+        main_components = {Circle(c.x, c.y, c.radius * 1.2) for c in main_components}
+        groups = defaultdict(set)
+
+        for radius in sorted(over, reverse=False)[:radius_count // 2]:
+            to_process = list(over.get(radius))
+
+            while to_process:
+                x, y = to_process.pop()
+                candidate_circle = Circle(int(x), int(y), int(radius))
+
+                if any(self.is_too_near(candidate_circle, c, -.65) for c in entities):
+                    continue
+                for main in main_components:
+                    if self.is_inside(
+                            main=main,
+                            to_check=candidate_circle
+                    ):
+                        groups[main].add(candidate_circle)
+                        continue
+
+        for main1 in tuple(groups.keys()):
+            for main2 in tuple(groups.keys()):
+                if main1 != main2 and self.is_too_near(main1, main2, 0) and main2 in groups and main1 in groups:
+                    new_main = Circle(
+                        (main1.x + main2.x) / 2,
+                        (main1.y + main2.y) / 2,
+                        self.distance(main1, main2)
+                    )
+                    groups[new_main] = groups[main1] | groups[main2]
+                    del groups[main2]
+                    del groups[main1]
 
         def show_shape(patch):
             ax = plt.gca()
             ax.add_patch(patch)
 
         plt.imshow(self._image)
-        for entity in entities:  # type: Circle
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(groups))))
+
+        for main, entities in groups.items():  # type: Circle
+            c = next(color)
+
             show_shape(
                 plt.Circle(
                     (
-                        entity.y,
-                        entity.x  # + side // self._scale
+                        main.y,
+                        main.x  # + side // self._scale
                     ),
-                    entity.radius,
-                    fc='none', ec='red')
+                    main.radius,
+                    fc='none',
+                    ec=c,
+                    linestyle=':'
+                )
             )
+
+            for entity in entities:
+                show_shape(
+                    plt.Circle(
+                        (
+                            entity.y,
+                            entity.x  # + side // self._scale
+                        ),
+                        entity.radius,
+                        fc='none', ec=c)
+                )
 
         plt.axis('scaled')
         plt.show()
+
+    def distance(self, c1, c2):
+        return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
+
+    def is_inside(self, main: Circle, to_check: Circle):
+        return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
+
+    def is_too_near(self, c1: Circle, c2: Circle, ratio: float) -> bool:
+        dist = self.distance(c1, c2)
+        R = c1.radius + c2.radius
+        return (dist - R) < ratio * R
