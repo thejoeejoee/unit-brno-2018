@@ -45,7 +45,7 @@ class Processor(object):
         print(image.shape)
 
         image = threshold_image(image, 80)
-        image = erosion_filter(image, 15)
+        image = erosion_filter(image, 23)
         image = gaussian_filter(image)
         grads, thetas = sobel(image)
 

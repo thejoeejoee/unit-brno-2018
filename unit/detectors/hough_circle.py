@@ -1,16 +1,16 @@
 # coding=utf-8
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from math import pi
 from typing import DefaultDict, Dict
 
 import numpy as np
 from matplotlib import pyplot as plt
-from sympy import Circle, Point, intersection
 
+Circle = namedtuple('Circle', 'x y radius')
 
 class HoughCircleDetector(object):
     GRADIENT_THRESHOLD = 40
-    RADIUS_RANGE = (60, 100)
+    RADIUS_RANGE = (25, 120)
 
     def __init__(
             self,
@@ -31,7 +31,7 @@ class HoughCircleDetector(object):
         H = np.zeros((radius_shape_count, shape[0], shape[1]))
 
         max_x, max_y = self._grads.shape[:2]
-        t = np.linspace(0, 2 * pi, 20)
+        t = np.linspace(0, 2 * pi, self._vote_threshold * 3)
         coss = np.cos(t)
         sins = np.sin(t)
 
@@ -47,7 +47,6 @@ class HoughCircleDetector(object):
                     aa = int(row[0])
                     bb = int(row[1])
                     if 0 <= aa < max_y and 0 <= bb < max_x:
-                        print(self._image[aa, bb])
                         if not self._image[aa, bb]:
                             return
                         H[rad, int(aa), int(bb)] += 1
@@ -104,9 +103,9 @@ class HoughCircleDetector(object):
         # plt.imshow(H[6, :, :])
         # plt.show()
 
-        # self._filter_centers(over, self._grads)
+        self._filter_centers(over, self._grads)
 
-        # return
+        return
 
         def show_shape(patch):
             ax = plt.gca()
@@ -131,16 +130,28 @@ class HoughCircleDetector(object):
 
             while to_process:
                 x, y = to_process.pop()
-                candidate_circle = Circle(Point(int(x), int(y)), int(radius))
+                candidate_circle = Circle(int(x), int(y), int(radius))
 
-                if any(o.encloses(candidate_circle) for o in entities):
+                CIRCLE_THRESHOLD_RATIO = -0.25
+
+                def is_too_near(c1: Circle, c2: Circle) -> bool:
+                    dist = ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
+                    R = c1.radius + c2.radius
+                    return (dist - R) < CIRCLE_THRESHOLD_RATIO * R
+
+                if any(is_too_near(candidate_circle, c) for c in entities):
                     continue
 
-                for maybe_collision in entities:
-                    if intersection(candidate_circle, maybe_collision):
-                        break
-                else:
-                    entities.add(candidate_circle)
+                entities.add(candidate_circle)
+
+                # if any(o.encloses(candidate_circle) for o in entities):
+                #     continue
+                #
+                # for maybe_collision in entities:
+                #     if intersection(candidate_circle, maybe_collision):
+                #         break
+                # else:
+                #     entities.add(candidate_circle)
 
         def show_shape(patch):
             ax = plt.gca()
@@ -151,8 +162,8 @@ class HoughCircleDetector(object):
             show_shape(
                 plt.Circle(
                     (
-                        side // self._scale - entity.center.x,
-                        side // self._scale - entity.center.y  # + side // self._scale
+                        entity.y,
+                        entity.x  # + side // self._scale
                     ),
                     entity.radius,
                     fc='none', ec='red')
