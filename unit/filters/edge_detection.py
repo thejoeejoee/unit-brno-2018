@@ -2,8 +2,10 @@
 import numpy as np
 from scipy.signal import convolve2d
 
+
 def generic_filter(source: np.ndarray, filter: np.ndarray) -> np.ndarray:
     return convolve2d(source, filter)
+
 
 def gaussian_filter(source: np.ndarray) -> np.ndarray:
     return generic_filter(source, np.matrix([
@@ -14,11 +16,12 @@ def gaussian_filter(source: np.ndarray) -> np.ndarray:
         [2, 4, 5, 4, 2],
     ])) * (1. / 159)
 
+
 def sobel(source: np.ndarray):
     grad_x = generic_filter(source, np.matrix([
         [1, 0, -1],
         [2, 0, -2],
-        [1, 0 , -1]]
+        [1, 0, -1]]
     ))
 
     grad_y = generic_filter(source, np.matrix([
@@ -30,5 +33,3 @@ def sobel(source: np.ndarray):
     grads = np.hypot(grad_x, grad_y)
     thetas = np.arctan2(grad_y, grad_x)
     return grads, thetas
-
-
