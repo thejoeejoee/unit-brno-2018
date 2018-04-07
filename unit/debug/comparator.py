@@ -8,11 +8,12 @@ from ..particle import Particle
 
 
 class ParticlesComparator(object):
-    def __init__(self):
-        pass
+    """
+    Compare two sets of article and prints them to stdoutput.
+    """
 
+    @staticmethod
     def compare(
-            self,
             detected_particles_file: TextIO,
             origin_particles_file: TextIO
     ):

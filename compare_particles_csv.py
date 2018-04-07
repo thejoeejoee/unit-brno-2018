@@ -17,9 +17,8 @@ if __name__ == '__main__':
     parser_ = create_arg_parser()
 
     args = parser_.parse_args(argv[1:])
-    comparator = ParticlesComparator()
 
-    comparator.compare(
+    ParticlesComparator.compare(
         open(args.detected_csv),
         open(args.origin_csv)
     )
