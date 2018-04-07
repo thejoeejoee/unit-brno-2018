@@ -90,26 +90,12 @@ class HoughCircleDetector(object):
                 shape=shape
             )
 
-        """
-        fig = plt.figure()
-        ax = Axes3D(fig)
-
-        yxis, zaxis, xaxis = H.nonzero()
-
-        ax.scatter(
-            xaxis,
-            yxis,
-            zaxis
-        )
-        fig.show()
-        input()
-        """
         print(over)
 
         # plt.imshow(H[6, :, :])
         # plt.show()
 
-        self._filter_centers(over, self._grads)
+        self.generate_components(over, self._grads)
 
         return
         plt.imshow(self._image)
@@ -121,46 +107,15 @@ class HoughCircleDetector(object):
 
         plt.show()
 
-    def _filter_centers(self, over: Dict[int, set], grads: np.ndarray):
-        side = self._grads.shape[0]
-
+    def generate_components(self, over: Dict[int, set], grads: np.ndarray):
         entities = set()
-        main_components = set()
         radius_count = len(over)
 
-        for radius in sorted(over, reverse=True)[:int(radius_count // 1.5)]:
-            to_process = list(over.get(radius))
-
-            while to_process:
-                x, y = to_process.pop()
-                candidate_circle = Circle(int(x), int(y), int(radius))
-
-                CIRCLE_THRESHOLD_RATIO = 0.1
-
-                if any(self.is_too_near(candidate_circle, c, CIRCLE_THRESHOLD_RATIO) for c in main_components):
-                    continue
-
-                main_components.add(candidate_circle)
+        main_components = self._place_main_components(over, radius_count)
 
         main_components = {Circle(c.x, c.y, c.radius * 1.2) for c in main_components}
-        groups = defaultdict(set)
 
-        for radius in sorted(over, reverse=False)[:radius_count // 2]:
-            to_process = list(over.get(radius))
-
-            while to_process:
-                x, y = to_process.pop()
-                candidate_circle = Circle(int(x), int(y), int(radius))
-
-                if any(self.is_too_near(candidate_circle, c, -.65) for c in entities):
-                    continue
-                for main in main_components:
-                    if self.is_inside(
-                            main=main,
-                            to_check=candidate_circle
-                    ):
-                        groups[main].add(candidate_circle)
-                        continue
+        groups = self._place_minor_components(entities, main_components, over, radius_count)
 
         plt.imshow(self._image)
 
@@ -200,22 +155,7 @@ class HoughCircleDetector(object):
 
         plt.imshow(self._image)
 
-        for main1 in tuple(groups.keys()):
-            for main2 in tuple(groups.keys()):
-                if main1 != main2 and \
-                        self.is_too_near(main1, main2, 0) \
-                        and main2 in groups and main1 in groups \
-                        and self.can_join_components(
-                    main1, main2
-                ):
-                    new_main = Circle(
-                        (main1.x + main2.x) / 2,
-                        (main1.y + main2.y) / 2,
-                        self.distance(main1, main2)
-                    )
-                    groups[new_main] = groups[main1] | groups[main2]
-                    del groups[main2]
-                    del groups[main1]
+        self._join_near_main_components(groups)
 
         for main, entities in groups.items():  # type: Circle
             c = next(color)
@@ -249,16 +189,58 @@ class HoughCircleDetector(object):
         plt.axis('scaled')
         plt.show()
 
-    def distance(self, c1, c2):
-        return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
+    def _join_near_main_components(self, groups):
+        for main1 in tuple(groups.keys()):
+            for main2 in tuple(groups.keys()):
+                if main1 != main2 and \
+                        self.is_too_near(main1, main2, 0) \
+                        and main2 in groups and main1 in groups \
+                        and self.can_join_components(
+                    main1, main2
+                ):
+                    new_main = Circle(
+                        (main1.x + main2.x) / 2,
+                        (main1.y + main2.y) / 2,
+                        self.distance(main1, main2)
+                    )
+                    groups[new_main] = groups[main1] | groups[main2]
+                    del groups[main2]
+                    del groups[main1]
 
-    def is_inside(self, main: Circle, to_check: Circle):
-        return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
+    def _place_minor_components(self, entities, main_components, over, radius_count):
+        groups = defaultdict(set)
+        for radius in sorted(over, reverse=False)[:radius_count // 2]:
+            to_process = list(over.get(radius))
 
-    def is_too_near(self, c1: Circle, c2: Circle, ratio: float) -> bool:
-        dist = self.distance(c1, c2)
-        R = c1.radius + c2.radius
-        return (dist - R) < ratio * R
+            while to_process:
+                x, y = to_process.pop()
+                candidate_circle = Circle(int(x), int(y), int(radius))
+
+                if any(self.is_too_near(candidate_circle, c, ratio=-.65) for c in entities):
+                    continue
+                for main in main_components:
+                    if self.is_inside(
+                            main=main,
+                            to_check=candidate_circle
+                    ):
+                        groups[main].add(candidate_circle)
+                        continue
+        return groups
+
+    def _place_main_components(self, over, radius_count):
+        main_components = set()
+        for radius in sorted(over, reverse=True)[:int(radius_count // 1.5)]:
+            to_process = list(over.get(radius))
+
+            while to_process:
+                x, y = to_process.pop()
+                candidate_circle = Circle(int(x), int(y), int(radius))
+
+                if any(self.is_too_near(candidate_circle, c, ratio=0.1) for c in main_components):
+                    continue
+
+                main_components.add(candidate_circle)
+        return main_components
 
     def can_join_components(self, c1: Circle, c2: Circle):
         k = (c2.y - c1.y) / (c2.x - c1.x)
@@ -289,3 +271,17 @@ class HoughCircleDetector(object):
                 return False
 
         return True
+
+    @staticmethod
+    def distance(c1, c2):
+        return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
+
+    @staticmethod
+    def is_inside(main: Circle, to_check: Circle):
+        return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
+
+    @classmethod
+    def is_too_near(cls, c1: Circle, c2: Circle, ratio: float) -> bool:
+        dist = cls.distance(c1, c2)
+        R = c1.radius + c2.radius
+        return (dist - R) < ratio * R
