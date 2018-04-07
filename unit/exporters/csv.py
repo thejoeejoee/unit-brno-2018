@@ -15,6 +15,7 @@ class CsvExporter(BaseExporter):
         writer = csv.writer(
             self._file_obj,
             dialect='excel',
+            delimiter=',',
         )
 
         writer.writerow(Particle.HEADER_FIELD_NAMES)
