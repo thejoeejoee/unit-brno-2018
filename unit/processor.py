@@ -41,10 +41,13 @@ class Processor(object):
             exporter.export()
 
     def _detect_particles(self, image: numpy.ndarray) -> Iterable[Particle]:
-        logging.debug('Applying filters...')
+        logging.debug('Applying threshold...')
         thresholded = threshold_image(image, 80)
+        logging.debug('Applying erosion...')
         eroded = erosion_filter(thresholded, 23)
+        logging.debug('Applying gaussian blur...')
         gaussed = gaussian_filter(eroded)
+        logging.debug('Computing sobel gradients...')
         grads, thetas = sobel_gradients(gaussed)
 
         hough_detector = HoughCircleDetector(gaussed, grads)

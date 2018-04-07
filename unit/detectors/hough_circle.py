@@ -2,7 +2,7 @@
 import logging
 from collections import defaultdict, namedtuple
 from math import pi
-from typing import DefaultDict, Dict, Iterable, Tuple, Set
+from typing import DefaultDict, Dict, Iterable, Tuple, Set, Callable
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -50,7 +50,7 @@ class HoughCircleDetector(object):
         gen_radius_f = self._generate_cone_radius_callable(
             max_x=max_x,
             max_y=max_y,
-            acumulator=accumulator,
+            accumulator=accumulator,
             over=over,
             coss=np.cos(t),
             sins=np.sin(t),
@@ -86,20 +86,21 @@ class HoughCircleDetector(object):
 
         # self._debug_plot_components(color, groups)
 
-        # plt.show()
-
         self._join_near_main_components(groups)
         logging.debug('Groups joined total to {}.'.format(len(groups)))
 
-        # self._debug_plot_components(color, groups)
+        self._debug_plot_components(color, groups)
 
-        # self._debug_plot_boxes(self._generate_boxes(groups))
+        self._debug_plot_boxes(self._generate_boxes(groups))
+
+        plt.show()
 
         return groups
 
-    def _generate_cone_radius_callable(self, max_x, max_y, acumulator, over, coss, sins):
-        def gen_radius_f(rad):
-            def bucketer(x, y):
+    def _generate_cone_radius_callable(self, max_x: int, max_y: int, accumulator: np.ndarray, over: Dict,
+                                       coss: np.ndarray, sins: np.ndarray) -> Callable:
+        def gen_radius_f(rad: int) -> Callable:
+            def bucketer(x: int, y: int):
                 x, y = int(x), int(y)
                 if self._grads[x, y] < self.GRADIENT_THRESHOLD:
                     return False
@@ -110,25 +111,25 @@ class HoughCircleDetector(object):
                     if 0 <= aa < max_y and 0 <= bb < max_x:
                         if not self._image[aa, bb]:
                             return
-                        acumulator[rad, int(aa), int(bb)] += 1
+                        accumulator[rad, int(aa), int(bb)] += 1
 
-                        if acumulator[rad, int(aa), int(bb)] > self._vote_threshold:
+                        if accumulator[rad, int(aa), int(bb)] > self._vote_threshold:
                             over[rad].add((aa, bb))
 
                     try:
-                        acumulator[rad, int(aa) + 1, int(bb)] += .25
+                        accumulator[rad, int(aa) + 1, int(bb)] += .25
                     except IndexError:
                         pass
                     try:
-                        acumulator[rad, int(aa) - 1, int(bb)] += .25
+                        accumulator[rad, int(aa) - 1, int(bb)] += .25
                     except IndexError:
                         pass
                     try:
-                        acumulator[rad, int(aa), int(bb) + 1] += .25
+                        accumulator[rad, int(aa), int(bb) + 1] += .25
                     except IndexError:
                         pass
                     try:
-                        acumulator[rad, int(aa), int(bb) - 1] += .25
+                        accumulator[rad, int(aa), int(bb) - 1] += .25
                     except IndexError:
                         pass
 

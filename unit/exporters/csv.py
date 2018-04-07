@@ -1,6 +1,7 @@
 # coding=utf-8
 
 import csv
+import logging
 
 from unit.exporters.base import BaseExporter
 from unit.particle import Particle
@@ -18,6 +19,7 @@ class CsvExporter(BaseExporter):
             delimiter=',',
         )
 
+        logging.debug('Exporting {} particles.'.format(len(self._particles)))
         writer.writerow(Particle.HEADER_FIELD_NAMES)
         writer.writerows(
             (p.width, p.height, p.max_length, p.thickness)
