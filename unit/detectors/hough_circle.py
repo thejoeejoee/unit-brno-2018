@@ -1,7 +1,7 @@
 # coding=utf-8
 from collections import defaultdict, namedtuple
 from math import pi
-from typing import DefaultDict, Dict
+from typing import DefaultDict, Dict, Iterable, Tuple
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -23,7 +23,7 @@ class HoughCircleDetector(object):
             image,
             grads: np.ndarray,
             scale=10,
-            vote_threshold=5
+            vote_threshold=4
     ):
         self._scale = scale
         self._image = image[::scale, ::scale]
@@ -111,6 +111,10 @@ class HoughCircleDetector(object):
         entities = set()
         radius_count = len(over)
 
+        over = {
+            radius: tuple(self._remove_image_edges_components(radius, circles)) for radius, circles in over.items()
+        }
+
         main_components = self._place_main_components(over, radius_count)
 
         main_components = {Circle(c.x, c.y, c.radius * 1.2) for c in main_components}
@@ -120,40 +124,6 @@ class HoughCircleDetector(object):
         plt.imshow(self._image)
 
         color = iter(plt.cm.rainbow(np.linspace(0, 1, len(groups) * 2)))
-
-        for main, entities in groups.items():  # type: Circle
-            c = next(color)
-
-            show_shape(
-                plt.Circle(
-                    (
-                        main.y,
-                        main.x  # + side // self._scale
-                    ),
-                    main.radius,
-                    fc='none',
-                    ec=c,
-                    linestyle=':'
-                )
-            )
-
-            for entity in entities:
-                show_shape(
-                    plt.Circle(
-                        (
-                            entity.y,
-                            entity.x  # + side // self._scale
-                        ),
-                        entity.radius,
-                        fc='none',
-                        ec=c
-                    )
-                )
-
-        plt.axis('scaled')
-        plt.show()
-
-        plt.imshow(self._image)
 
         self._join_near_main_components(groups)
 
@@ -195,7 +165,7 @@ class HoughCircleDetector(object):
                 if main1 != main2 and \
                         self.is_too_near(main1, main2, 0) \
                         and main2 in groups and main1 in groups \
-                        and self.can_join_components(
+                        and self._can_join_components(
                     main1, main2
                 ):
                     new_main = Circle(
@@ -229,7 +199,7 @@ class HoughCircleDetector(object):
 
     def _place_main_components(self, over, radius_count):
         main_components = set()
-        for radius in sorted(over, reverse=True)[:int(radius_count // 1.5)]:
+        for radius in sorted(over, reverse=True)[:int(radius_count // 1.25)]:
             to_process = list(over.get(radius))
 
             while to_process:
@@ -242,8 +212,17 @@ class HoughCircleDetector(object):
                 main_components.add(candidate_circle)
         return main_components
 
-    def can_join_components(self, c1: Circle, c2: Circle):
+    def _remove_image_edges_components(self, radius: int, circles: Iterable[Tuple[int, int]], ratio=1.35):
+        max_x = self._image.shape[0]
+        max_y = self._image.shape[1]
+        for x, y in circles:
+            if min((x, y, max_x - x, max_y - y)) > radius * ratio:
+                yield (x, y)
+
+    def _can_join_components(self, c1: Circle, c2: Circle):
         k = (c2.y - c1.y) / (c2.x - c1.x)
+        if not k:
+            return False
         q = c1.y - k * c1.x
 
         if c1.x < c2.x:
