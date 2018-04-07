@@ -33,7 +33,7 @@ class HoughCircleDetector(object):
 
     @property
     def scale(self) -> int:
-        return self.scale
+        return self._scale
 
     def detect(self) -> Iterable[Tuple[int, int, int, int]]:
         """
@@ -87,9 +87,9 @@ class HoughCircleDetector(object):
 
         groups = self._place_minor_components(entities, main_components, over, radius_count)
         logging.debug('Minor components placed into {} groups.'.format(len(groups)))
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, 100)))
+        # color = iter(plt.cm.rainbow(np.linspace(0, 1, 100)))
 
-        plt.imshow(self._image.T)
+        # plt.imshow(self._image.T)
 
         # self._debug_plot_components(color, groups)
 
@@ -237,39 +237,6 @@ class HoughCircleDetector(object):
             if min((x, y, max_x - x, max_y - y)) > radius * ratio:
                 yield (x, y)
 
-    def _can_join_components_(self, c1: Circle, c2: Circle):
-        """
-        Computes, if two components can be joined (has filled path on image between centers of components).
-        """
-        k = (c2.y - c1.y) / (c2.x - c1.x)
-        q = c1.y - k * c1.x
-
-        if c1.x < c2.x:
-            x1 = c1.x
-            x2 = c2.x
-        else:
-            x1 = c2.x
-            x2 = c1.x
-
-        if c1.y < c2.y:
-            y1 = c1.y
-            y2 = c2.y
-        else:
-            y1 = c2.y
-            y2 = c1.y
-
-        for x in range(int(x1), int(x2) + 1):
-            y = int(round(k * x + q))
-            if self._image[x, y] < self.GRADIENT_THRESHOLD:
-                return False
-
-        for y in range(int(y1), int(y2) + 1):
-            x = int(round((y - q) / k))
-            if self._image[x, y] < self.GRADIENT_THRESHOLD:
-                return False
-
-        return True
-
     def _generate_boxes(self, groups: Dict[Circle, Set[Circle]], ratio=0.015):
         """
         From groups of main components generates boxes from their minimal/maximal X/Y.
@@ -303,6 +270,7 @@ class HoughCircleDetector(object):
         u2 = (c2.y - c1.y)
         a1 = c1.x
         a2 = c1.y
+        side = self._image.shape[0]
 
         r = int(min(c1.radius, c2.radius) * 1)
         for rat in (.25, .5, .75, .1,):
@@ -313,11 +281,13 @@ class HoughCircleDetector(object):
                 y2 = int(round(a2 + r * rat + t * u2))
                 x3 = int(round(a1 - r * rat + t * u1))
                 y3 = int(round(a2 - r * rat + t * u2))
-                if all((
-                        self._image[x1, y1] < self.GRADIENT_THRESHOLD,
-                        self._image[x2, y2] < self.GRADIENT_THRESHOLD,
-                        self._image[x3, y3] < self.GRADIENT_THRESHOLD,
-                )):
+
+                twices = (x1, y1), (x2, y2), (x3, y3)
+
+                def is_ok(x, y):
+                    return 0 <= x < side and 0 <= y < side
+
+                if all((self._image[tw] < self.GRADIENT_THRESHOLD) for tw in twices if is_ok(*tw)):
                     return False
 
         return True
