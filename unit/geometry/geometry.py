@@ -23,11 +23,31 @@ def get_longest_line(source):
                 print(l[-1], l[0])
     return max_len
 
+def get_longest_inline(source):
+    ymin, ymax, xmin, xmax = bbox2(source)
+    source = source[ymin:ymax + 1][xmin:xmax + 1]
+    max_len = 0
+
+    for row in source:
+        current_len = 0
+        for value in row:
+            if value >= 127:
+                current_len += 1
+            else:
+                max_len = max(max_len, current_len)
+                current_len = 0
+
+    return max_len
+
 """
 maxi = 0
+    maxi_angle = 0
     for i in range(0, 180, 1):
-        maxi = max(maxi, get_longest_line(ndimage.interpolation.rotate(img, i)))
-        if maxi == 280:
-            print(i, "deg")
-    print("max", maxi)
+        line = get_longest_line(ndimage.interpolation.rotate(img, i))
+        if maxi < line:
+            maxi = line
+            maxi_angle = i
+
+
+    print(get_longest_inline(ndimage.interpolation.rotate(img, maxi_angle + 90)))
 """
