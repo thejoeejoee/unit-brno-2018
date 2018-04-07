@@ -29,12 +29,12 @@ class Particle(object):
 
         return particle
 
-    def __str__(self):
+    def __str__(self, *args):
         return 'Particle({})'.format(
             ', '.join(
                 '{}={:3}'.format(
                     k[0],
-                    getattr(self, k, None)
-                ) for k in sorted(dir(self)) if not k.startswith('_') and not callable(getattr(self, k, None))
+                    str(getattr(self, k, None))
+                ) for k in sorted(dir(self)) if not k.startswith('_') and not k[0].isupper() and not callable(getattr(self, k, None))
             )
         )
