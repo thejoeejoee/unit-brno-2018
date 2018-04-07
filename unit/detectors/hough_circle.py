@@ -35,7 +35,10 @@ class HoughCircleDetector(object):
     def scale(self) -> int:
         return self.scale
 
-    def detect(self):
+    def detect(self) -> Iterable[Tuple[int, int, int, int]]:
+        """
+        From loaded image detect all AABB boxes around particles.
+        """
         shape = self._grads.shape
         radius_shape_count = abs(self._radius_range[0] + self._radius_range[1])  # type: int
         # accumulator array
@@ -67,6 +70,10 @@ class HoughCircleDetector(object):
         return self._generate_boxes(groups)
 
     def _create_groups(self, over: Dict[int, set], grads: np.ndarray) -> Dict[Circle, Set[Circle]]:
+        """
+        From rated radiuses creates main components with their main subcomponents,
+        using clustering and analytic geometry.
+        """
         entities = set()
         radius_count = len(over)
         logging.debug('Removing components on sides.')
@@ -89,16 +96,19 @@ class HoughCircleDetector(object):
         self._join_near_main_components(groups)
         logging.debug('Groups joined total to {}.'.format(len(groups)))
 
-        self._debug_plot_components(color, groups)
+        # self._debug_plot_components(color, groups)
 
-        self._debug_plot_boxes(self._generate_boxes(groups))
+        # self._debug_plot_boxes(self._generate_boxes(groups))
 
-        plt.show()
+        # plt.show()
 
         return groups
 
     def _generate_cone_radius_callable(self, max_x: int, max_y: int, accumulator: np.ndarray, over: Dict,
                                        coss: np.ndarray, sins: np.ndarray) -> Callable:
+        """
+        Create callable for walking though bevel gradients arrays and accumulating them into array.
+        """
         def gen_radius_f(rad: int) -> Callable:
             def bucketer(x: int, y: int):
                 x, y = int(x), int(y)
@@ -174,7 +184,7 @@ class HoughCircleDetector(object):
 
     def _place_minor_components(self, entities, main_components, over, radius_count):
         """
-        Tries
+        Tries place minor component into major (main) components - decision based on enclosing and distance.
         """
         groups = defaultdict(set)
         for radius in sorted(over, reverse=False)[:radius_count // 2]:
@@ -199,6 +209,9 @@ class HoughCircleDetector(object):
         return groups
 
     def _place_main_components(self, over, radius_count):
+        """
+        Tries to place main components into image - decisions based on distance between others.
+        """
         main_components = set()
         for radius in sorted(over, reverse=True)[:int(radius_count // 1.25)]:
             to_process = list(over.get(radius))
@@ -214,6 +227,9 @@ class HoughCircleDetector(object):
         return main_components
 
     def _remove_image_edges_components(self, radius: int, circles: Iterable[Tuple[int, int]], ratio=1.35):
+        """
+        Removes all components with sides outside image shape.
+        """
         max_x = self._image.shape[0]
         max_y = self._image.shape[1]
         for x, y in circles:
@@ -221,6 +237,9 @@ class HoughCircleDetector(object):
                 yield (x, y)
 
     def _can_join_components_(self, c1: Circle, c2: Circle):
+        """
+        Computes, if two components can be joined (has filled path on image between centers of components).
+        """
         k = (c2.y - c1.y) / (c2.x - c1.x)
         q = c1.y - k * c1.x
 
@@ -251,6 +270,9 @@ class HoughCircleDetector(object):
         return True
 
     def _generate_boxes(self, groups: Dict[Circle, Set[Circle]], ratio=0.015):
+        """
+        From groups of main components generates boxes from their minimal/maximal X/Y.
+        """
         side = self._image.shape[0]
         for main, components in groups.items():
             min_x = side

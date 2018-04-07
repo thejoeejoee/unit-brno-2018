@@ -4,6 +4,7 @@ import logging
 import sys
 from argparse import ArgumentParser
 
+from unit.exceptions import ImageNotFoundError, TiffLoadError
 from unit.processor import Processor
 
 
@@ -27,11 +28,19 @@ def main() -> int:
     processor = Processor()
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    with open(args.output_csv, 'w') as f:
-        return processor.run(
-            args.input_tiff_file,
-            f,
-        )
+
+    try:
+        with open(args.output_csv, 'w') as f:
+            return processor.run(
+                args.input_tiff_file,
+                f,
+            )
+    except ImageNotFoundError as e:
+        logging.error('Input image not found or is not readable.')
+    except TiffLoadError as e:
+        logging.error('Input image is not valid TIFF image.')
+    except Exception as e:
+        logging.error('Unknown error occurred: {}'.format(e))
 
 
 if __name__ == '__main__':

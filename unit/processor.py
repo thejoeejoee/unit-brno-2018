@@ -40,17 +40,18 @@ class Processor(object):
             exporter = self._exporter_class(particles=particles, _file_obj=output_stream)
             exporter.export()
 
-    def _detect_particles(self, image: numpy.ndarray) -> Iterable[Particle]:
+    @staticmethod
+    def _detect_particles(image: numpy.ndarray) -> Iterable[Particle]:
         logging.debug('Applying threshold...')
-        thresholded = threshold_image(image, 80)
+        with_threshold = threshold_image(image, 80)
         logging.debug('Applying erosion...')
-        eroded = erosion_filter(thresholded, 23)
+        eroded = erosion_filter(with_threshold, 23)
         logging.debug('Applying gaussian blur...')
-        gaussed = gaussian_filter(eroded)
+        filtered_by_gauss = gaussian_filter(eroded)
         logging.debug('Computing sobel gradients...')
-        grads, thetas = sobel_gradients(gaussed)
+        grads, thetas = sobel_gradients(filtered_by_gauss)
 
-        hough_detector = HoughCircleDetector(gaussed, grads)
+        hough_detector = HoughCircleDetector(filtered_by_gauss, grads)
         bound_boxes = hough_detector.detect()
 
         particles = list()
@@ -58,7 +59,7 @@ class Processor(object):
         for x, y, width, height in bound_boxes:
             particle = Particle()
             s = hough_detector._scale
-            masked = thresholded[int(x) * s: int(x + width) * s, int(y) * s: int(y + height) * s]
+            masked = with_threshold[int(x) * s: int(x + width) * s, int(y) * s: int(y + height) * s]
 
             maxi = 0
             maxi_angle = 0
