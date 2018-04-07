@@ -90,8 +90,6 @@ class HoughCircleDetector(object):
                 shape=shape
             )
 
-        print(over)
-
         # plt.imshow(H[6, :, :])
         # plt.show()
 
@@ -117,7 +115,7 @@ class HoughCircleDetector(object):
 
         main_components = self._place_main_components(over, radius_count)
 
-        main_components = {Circle(c.x, c.y, c.radius * 1.2) for c in main_components}
+        main_components = {Circle(int(c.x), int(c.y), int(c.radius * 1.2)) for c in main_components}
 
         groups = self._place_minor_components(entities, main_components, over, radius_count)
 
@@ -139,7 +137,8 @@ class HoughCircleDetector(object):
                     main.radius,
                     fc='none',
                     ec=c,
-                    linestyle=':'
+                    linestyle=':',
+                    lw=4
                 )
             )
 
@@ -160,22 +159,30 @@ class HoughCircleDetector(object):
         plt.show()
 
     def _join_near_main_components(self, groups):
-        for main1 in tuple(groups.keys()):
-            for main2 in tuple(groups.keys()):
-                if main1 != main2 and \
-                        self.is_too_near(main1, main2, 0) \
-                        and main2 in groups and main1 in groups \
-                        and self._can_join_components(
-                    main1, main2
+        to_process = set(groups.keys())
+
+        while to_process:
+            candidate = to_process.pop()
+
+            for another in tuple(to_process):
+                if candidate != another and self.is_too_near(candidate, another, 10) and self._can_join_components(
+                        candidate, another
                 ):
                     new_main = Circle(
-                        (main1.x + main2.x) / 2,
-                        (main1.y + main2.y) / 2,
-                        self.distance(main1, main2)
+                        (another.x + candidate.x) / 2,
+                        (another.y + candidate.y) / 2,
+                        self.distance(another, candidate)
                     )
-                    groups[new_main] = groups[main1] | groups[main2]
-                    del groups[main2]
-                    del groups[main1]
+                    if candidate in groups:
+                        del groups[candidate]
+                    if another in groups:
+                        del groups[another]
+
+                    groups[new_main] = groups[another] | groups[candidate]
+                    to_process.add(new_main)
+                    break
+            else:
+                break
 
     def _place_minor_components(self, entities, main_components, over, radius_count):
         groups = defaultdict(set)
@@ -192,6 +199,9 @@ class HoughCircleDetector(object):
                     if self.is_inside(
                             main=main,
                             to_check=candidate_circle
+                    ) and self._can_join_components(
+                        c1=main,
+                        c2=candidate_circle
                     ):
                         groups[main].add(candidate_circle)
                         continue
@@ -219,10 +229,8 @@ class HoughCircleDetector(object):
             if min((x, y, max_x - x, max_y - y)) > radius * ratio:
                 yield (x, y)
 
-    def _can_join_components(self, c1: Circle, c2: Circle):
+    def _can_join_components_(self, c1: Circle, c2: Circle):
         k = (c2.y - c1.y) / (c2.x - c1.x)
-        if not k:
-            return False
         q = c1.y - k * c1.x
 
         if c1.x < c2.x:
@@ -246,6 +254,20 @@ class HoughCircleDetector(object):
 
         for y in range(int(y1), int(y2) + 1):
             x = int(round((y - q) / k))
+            if self._image[x, y] < self.GRADIENT_THRESHOLD:
+                return False
+
+        return True
+
+    def _can_join_components(self, c1: Circle, c2: Circle):
+        u1 = (c2.x - c1.x)
+        u2 = (c2.y - c1.y)
+        a1 = c1.x
+        a2 = c1.y
+
+        for t in np.linspace(0, 1, 100):
+            x = int(round(a1 + t * u1))
+            y = int(round(a2 + t * u2))
             if self._image[x, y] < self.GRADIENT_THRESHOLD:
                 return False
 
