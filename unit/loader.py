@@ -23,4 +23,5 @@ class Loader(object):
             except IOError as e:
                 raise TiffLoadError() from e
 
-            yield from tiff.iter_images()
+            for im in tiff.iter_images():
+                yield np.array(im, np.uint8)

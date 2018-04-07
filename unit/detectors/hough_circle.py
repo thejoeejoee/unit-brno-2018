@@ -1,7 +1,7 @@
 # coding=utf-8
 from collections import defaultdict, namedtuple
 from math import pi
-from typing import DefaultDict, Dict, Iterable, Tuple
+from typing import DefaultDict, Dict, Iterable, Tuple, Set
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -119,20 +119,46 @@ class HoughCircleDetector(object):
 
         groups = self._place_minor_components(entities, main_components, over, radius_count)
 
-        plt.imshow(self._image)
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, 100)))
 
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(groups) * 2)))
+        plt.imshow(self._image.T)
+
+        # self._debug_plot_components(color, groups)
+
+        # plt.show()
 
         self._join_near_main_components(groups)
 
+        boxes = self._generate_boxes(groups)
+
+        self._debug_plot_components(color, groups)
+
+        for x, y, w, h in boxes:
+            show_shape(
+                plt.Rectangle(
+                    (x, y),
+                    w,
+                    h,
+                    fc='none',
+                    ec='red',
+                    lw=2,
+                    linestyle='--'
+                )
+            )
+
+        plt.axis('scaled')
+        plt.show()
+
+    def _debug_plot_components(self, color, groups):
         for main, entities in groups.items():  # type: Circle
+
             c = next(color)
 
             show_shape(
                 plt.Circle(
                     (
-                        main.y,
-                        main.x  # + side // self._scale
+                        main.x,
+                        main.y  # + side // self._scale
                     ),
                     main.radius,
                     fc='none',
@@ -146,17 +172,14 @@ class HoughCircleDetector(object):
                 show_shape(
                     plt.Circle(
                         (
-                            entity.y,
-                            entity.x  # + side // self._scale
+                            entity.x,
+                            entity.y  # + side // self._scale
                         ),
                         entity.radius,
                         fc='none',
                         ec=c
                     )
                 )
-
-        plt.axis('scaled')
-        plt.show()
 
     def _join_near_main_components(self, groups):
         to_process = set(groups.keys())
@@ -286,3 +309,23 @@ class HoughCircleDetector(object):
         dist = cls.distance(c1, c2)
         R = c1.radius + c2.radius
         return (dist - R) < ratio * R
+
+    def _generate_boxes(self, groups: Dict[Circle, Set[Circle]], ratio=0.015):
+        side = self._image.shape[0]
+        for main, components in groups.items():
+            min_x = side
+            min_y = side
+            max_x = 0
+            max_y = 0
+            for c in components:
+                max_x = max((max_x, c.x + c.radius))
+                min_x = min((min_x, c.x - c.radius))
+                max_y = max((max_y, c.y + c.radius))
+                min_y = min((min_y, c.y - c.radius))
+
+            yield (
+                min_x - side * (ratio / 2),
+                min_y - side * (ratio / 2),
+                (max_x - min_x) + side * ratio,
+                (max_y - min_y) + side * ratio
+            )
