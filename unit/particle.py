@@ -1,5 +1,5 @@
 # coding=utf-8
-from jedi.evaluate.jedi_typing import Iterable
+from typing import Iterable
 
 
 class Particle(object):
