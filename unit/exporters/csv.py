@@ -20,7 +20,7 @@ class CsvExporter(BaseExporter):
 
         writer.writerow(Particle.HEADER_FIELD_NAMES)
         writer.writerows(
-            (i, p.width, p.height, p.max_length, p.thickness)
+            (p.width, p.height, p.max_length, p.thickness)
             for i, p
             in enumerate(self._particles, start=1)
             if p.width and p.thickness and p.height and p.max_length

@@ -2,7 +2,7 @@
 
 
 class Particle(object):
-    HEADER_FIELD_NAMES = ['Part #', 'Width', 'Height', 'Max Length', 'Thickness']
+    HEADER_FIELD_NAMES = ['Width', 'Height', 'Max Length', 'Thickness']
     width = 0  # type: int
     height = 0  # type: int
     max_length = 0.0  # type: float
