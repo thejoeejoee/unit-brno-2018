@@ -24,4 +24,4 @@ class Loader(object):
                 raise TiffLoadError() from e
 
             for im in tiff.iter_images():
-                yield np.array(im, np.uint8)
+                yield np.array(im, np.uint8).T

@@ -15,15 +15,18 @@ def show_shape(patch):
 
 
 class HoughCircleDetector(object):
+    """
+    With Hough's circle transform tries to detect main circled component on image.
+    """
     GRADIENT_THRESHOLD = 40
     RADIUS_RANGE = (10, 120)
 
     def __init__(
             self,
-            image,
+            image: np.ndarray,
             grads: np.ndarray,
-            scale=10,
-            vote_threshold=4
+            scale: int = 10,
+            vote_threshold: int = 4
     ):
         self._scale = scale
         self._image = image[::scale, ::scale]
@@ -31,81 +34,41 @@ class HoughCircleDetector(object):
         self._radius_range = self.RADIUS_RANGE[0] // scale, self.RADIUS_RANGE[1] // scale
         self._vote_threshold = vote_threshold
 
+    @property
+    def scale(self) -> int:
+        return self.scale
+
     def detect(self):
         shape = self._grads.shape
-        radius_shape_count = abs(self._radius_range[0] + self._radius_range[1])
-        H = np.zeros((radius_shape_count, shape[0], shape[1]))
+        radius_shape_count = abs(self._radius_range[0] + self._radius_range[1])  # type: int
+        # accumulator array
+        accumulator = np.zeros((radius_shape_count, shape[0], shape[1]))  # type: np.ndarray
 
         max_x, max_y = self._grads.shape[:2]
+        # linspace for goniometric functions
         t = np.linspace(0, 2 * pi, self._vote_threshold * 3)
-        coss = np.cos(t)
-        sins = np.sin(t)
 
-        over = defaultdict(set)  # type: DefaultDict[set]
+        over = defaultdict(set)  # type: DefaultDict[Circle, set]
 
-        def gen_radius_f(rad):
-            def bucketer(x, y):
-                x, y = int(x), int(y)
-                if self._grads[x, y] < self.GRADIENT_THRESHOLD:
-                    return False
-
-                def baf(row):
-                    aa = int(row[0])
-                    bb = int(row[1])
-                    if 0 <= aa < max_y and 0 <= bb < max_x:
-                        if not self._image[aa, bb]:
-                            return
-                        H[rad, int(aa), int(bb)] += 1
-
-                        if H[rad, int(aa), int(bb)] > self._vote_threshold:
-                            over[rad].add((aa, bb))
-
-                    try:
-                        H[rad, int(aa) + 1, int(bb)] += .25
-                    except IndexError:
-                        pass
-                    try:
-                        H[rad, int(aa) - 1, int(bb)] += .25
-                    except IndexError:
-                        pass
-                    try:
-                        H[rad, int(aa), int(bb) + 1] += .25
-                    except IndexError:
-                        pass
-                    try:
-                        H[rad, int(aa), int(bb) - 1] += .25
-                    except IndexError:
-                        pass
-
-                a = x - coss * rad
-                b = y - sins * rad
-                np.apply_along_axis(baf, 1, np.dstack((a, b))[0])
-                return True
-
-            return bucketer
+        gen_radius_f = self._generate_cone_radius_callable(
+            max_x=max_x,
+            max_y=max_y,
+            acumulator=accumulator,
+            over=over,
+            coss=np.cos(t),
+            sins=np.sin(t),
+        )
 
         for rad in range(self._radius_range[0], self._radius_range[1]):
+            # accumulate all needed radiuses
             np.fromfunction(
                 np.vectorize(gen_radius_f(rad)),
                 shape=shape
             )
+        groups = self._create_groups(over, self._grads)
+        return self._generate_boxes(groups)
 
-        # plt.imshow(H[6, :, :])
-        # plt.show()
-
-        self.generate_components(over, self._grads)
-
-        return
-        plt.imshow(self._image)
-        for rad, circles in over.items():
-            for x, y in circles:
-                show_shape(plt.Circle((y, x), rad, fc='none', ec='red'))
-
-        plt.axis('scaled')
-
-        plt.show()
-
-    def generate_components(self, over: Dict[int, set], grads: np.ndarray):
+    def _create_groups(self, over: Dict[int, set], grads: np.ndarray) -> Dict[Circle, Set[Circle]]:
         entities = set()
         radius_count = len(over)
 
@@ -129,57 +92,55 @@ class HoughCircleDetector(object):
 
         self._join_near_main_components(groups)
 
-        boxes = self._generate_boxes(groups)
+        # self._debug_plot_components(color, groups)
 
-        self._debug_plot_components(color, groups)
+        # self._debug_plot_boxes(boxes)
 
-        for x, y, w, h in boxes:
-            show_shape(
-                plt.Rectangle(
-                    (x, y),
-                    w,
-                    h,
-                    fc='none',
-                    ec='red',
-                    lw=2,
-                    linestyle='--'
-                )
-            )
+        return groups
 
-        plt.axis('scaled')
-        plt.show()
+    def _generate_cone_radius_callable(self, max_x, max_y, acumulator, over, coss, sins):
+        def gen_radius_f(rad):
+            def bucketer(x, y):
+                x, y = int(x), int(y)
+                if self._grads[x, y] < self.GRADIENT_THRESHOLD:
+                    return False
 
-    def _debug_plot_components(self, color, groups):
-        for main, entities in groups.items():  # type: Circle
+                def baf(row):
+                    aa = int(row[0])
+                    bb = int(row[1])
+                    if 0 <= aa < max_y and 0 <= bb < max_x:
+                        if not self._image[aa, bb]:
+                            return
+                        acumulator[rad, int(aa), int(bb)] += 1
 
-            c = next(color)
+                        if acumulator[rad, int(aa), int(bb)] > self._vote_threshold:
+                            over[rad].add((aa, bb))
 
-            show_shape(
-                plt.Circle(
-                    (
-                        main.x,
-                        main.y  # + side // self._scale
-                    ),
-                    main.radius,
-                    fc='none',
-                    ec=c,
-                    linestyle=':',
-                    lw=4
-                )
-            )
+                    try:
+                        acumulator[rad, int(aa) + 1, int(bb)] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        acumulator[rad, int(aa) - 1, int(bb)] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        acumulator[rad, int(aa), int(bb) + 1] += .25
+                    except IndexError:
+                        pass
+                    try:
+                        acumulator[rad, int(aa), int(bb) - 1] += .25
+                    except IndexError:
+                        pass
 
-            for entity in entities:
-                show_shape(
-                    plt.Circle(
-                        (
-                            entity.x,
-                            entity.y  # + side // self._scale
-                        ),
-                        entity.radius,
-                        fc='none',
-                        ec=c
-                    )
-                )
+                a = x - coss * rad
+                b = y - sins * rad
+                np.apply_along_axis(baf, 1, np.dstack((a, b))[0])
+                return True
+
+            return bucketer
+
+        return gen_radius_f
 
     def _join_near_main_components(self, groups):
         to_process = set(groups.keys())
@@ -188,7 +149,7 @@ class HoughCircleDetector(object):
             candidate = to_process.pop()
 
             for another in tuple(to_process):
-                if candidate != another and self.is_too_near(candidate, another, 10) and self._can_join_components(
+                if candidate != another and self.is_too_near(candidate, another, 12) and self._can_join_components(
                         candidate, another
                 ):
                     new_main = Circle(
@@ -282,34 +243,6 @@ class HoughCircleDetector(object):
 
         return True
 
-    def _can_join_components(self, c1: Circle, c2: Circle):
-        u1 = (c2.x - c1.x)
-        u2 = (c2.y - c1.y)
-        a1 = c1.x
-        a2 = c1.y
-
-        for t in np.linspace(0, 1, 100):
-            x = int(round(a1 + t * u1))
-            y = int(round(a2 + t * u2))
-            if self._image[x, y] < self.GRADIENT_THRESHOLD:
-                return False
-
-        return True
-
-    @staticmethod
-    def distance(c1, c2):
-        return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
-
-    @staticmethod
-    def is_inside(main: Circle, to_check: Circle):
-        return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
-
-    @classmethod
-    def is_too_near(cls, c1: Circle, c2: Circle, ratio: float) -> bool:
-        dist = cls.distance(c1, c2)
-        R = c1.radius + c2.radius
-        return (dist - R) < ratio * R
-
     def _generate_boxes(self, groups: Dict[Circle, Set[Circle]], ratio=0.015):
         side = self._image.shape[0]
         for main, components in groups.items():
@@ -329,3 +262,97 @@ class HoughCircleDetector(object):
                 (max_x - min_x) + side * ratio,
                 (max_y - min_y) + side * ratio
             )
+
+    def _can_join_components(self, c1: Circle, c2: Circle):
+        u1 = (c2.x - c1.x)
+        u2 = (c2.y - c1.y)
+        a1 = c1.x
+        a2 = c1.y
+
+        r = int(min(c1.radius, c2.radius) * 1)
+        for rat in (.25, .5, .75, .1,):
+            for t in np.linspace(0, 1, 30):
+                x1 = int(round(a1 + t * u1))
+                y1 = int(round(a2 + t * u2))
+                x2 = int(round(a1 + r * rat + t * u1))
+                y2 = int(round(a2 + r * rat + t * u2))
+                x3 = int(round(a1 - r * rat + t * u1))
+                y3 = int(round(a2 - r * rat + t * u2))
+                if all((
+                        self._image[x1, y1] < self.GRADIENT_THRESHOLD,
+                        self._image[x2, y2] < self.GRADIENT_THRESHOLD,
+                        self._image[x3, y3] < self.GRADIENT_THRESHOLD,
+                )):
+                    return False
+
+        return True
+
+    @staticmethod
+    def distance(c1, c2):
+        return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
+
+    @staticmethod
+    def is_inside(main: Circle, to_check: Circle):
+        return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
+
+    @classmethod
+    def is_too_near(cls, c1: Circle, c2: Circle, ratio: float) -> bool:
+        dist = cls.distance(c1, c2)
+        R = c1.radius + c2.radius
+        return (dist - R) < ratio * R
+
+    def _debug_plot_circles(self, over):
+        plt.imshow(self._image)
+        for rad, circles in over.items():
+            for x, y in circles:
+                show_shape(plt.Circle((y, x), rad, fc='none', ec='red'))
+        plt.axis('scaled')
+        plt.show()
+
+    def _debug_plot_boxes(self, boxes):
+        for x, y, w, h in boxes:
+            show_shape(
+                plt.Rectangle(
+                    (x, y),
+                    w,
+                    h,
+                    fc='none',
+                    ec='red',
+                    lw=2,
+                    linestyle='--'
+                )
+            )
+        plt.axis('scaled')
+        plt.show()
+
+    def _debug_plot_components(self, color, groups):
+        for main, entities in groups.items():  # type: Circle
+
+            c = next(color)
+
+            show_shape(
+                plt.Circle(
+                    (
+                        main.x,
+                        main.y  # + side // self._scale
+                    ),
+                    main.radius,
+                    fc='none',
+                    ec=c,
+                    linestyle=':',
+                    lw=4
+                )
+            )
+
+            for entity in entities:
+                show_shape(
+                    plt.Circle(
+                        (
+                            entity.x,
+                            entity.y  # + side // self._scale
+                        ),
+                        entity.radius,
+                        fc='none',
+                        ec=c
+                    )
+                )
