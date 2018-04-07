@@ -1,5 +1,4 @@
 # coding=utf-8
-import copy
 from collections import defaultdict, namedtuple
 from math import pi
 from typing import DefaultDict, Dict
@@ -8,6 +7,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 Circle = namedtuple('Circle', 'x y radius')
+
+
+def show_shape(patch):
+    ax = plt.gca()
+    ax.add_patch(patch)
 
 
 class HoughCircleDetector(object):
@@ -108,11 +112,6 @@ class HoughCircleDetector(object):
         self._filter_centers(over, self._grads)
 
         return
-
-        def show_shape(patch):
-            ax = plt.gca()
-            ax.add_patch(patch)
-
         plt.imshow(self._image)
         for rad, circles in over.items():
             for x, y in circles:
@@ -163,24 +162,9 @@ class HoughCircleDetector(object):
                         groups[main].add(candidate_circle)
                         continue
 
-        for main1 in tuple(groups.keys()):
-            for main2 in tuple(groups.keys()):
-                if main1 != main2 and self.is_too_near(main1, main2, 0) and main2 in groups and main1 in groups:
-                    new_main = Circle(
-                        (main1.x + main2.x) / 2,
-                        (main1.y + main2.y) / 2,
-                        self.distance(main1, main2)
-                    )
-                    groups[new_main] = groups[main1] | groups[main2]
-                    del groups[main2]
-                    del groups[main1]
-
-        def show_shape(patch):
-            ax = plt.gca()
-            ax.add_patch(patch)
-
         plt.imshow(self._image)
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(groups))))
+
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(groups) * 2)))
 
         for main, entities in groups.items():  # type: Circle
             c = next(color)
@@ -206,7 +190,60 @@ class HoughCircleDetector(object):
                             entity.x  # + side // self._scale
                         ),
                         entity.radius,
-                        fc='none', ec=c)
+                        fc='none',
+                        ec=c
+                    )
+                )
+
+        plt.axis('scaled')
+        plt.show()
+
+        plt.imshow(self._image)
+
+        for main1 in tuple(groups.keys()):
+            for main2 in tuple(groups.keys()):
+                if main1 != main2 and \
+                        self.is_too_near(main1, main2, 0) \
+                        and main2 in groups and main1 in groups \
+                        and self.can_join_components(
+                    main1, main2
+                ):
+                    new_main = Circle(
+                        (main1.x + main2.x) / 2,
+                        (main1.y + main2.y) / 2,
+                        self.distance(main1, main2)
+                    )
+                    groups[new_main] = groups[main1] | groups[main2]
+                    del groups[main2]
+                    del groups[main1]
+
+        for main, entities in groups.items():  # type: Circle
+            c = next(color)
+
+            show_shape(
+                plt.Circle(
+                    (
+                        main.y,
+                        main.x  # + side // self._scale
+                    ),
+                    main.radius,
+                    fc='none',
+                    ec=c,
+                    linestyle=':'
+                )
+            )
+
+            for entity in entities:
+                show_shape(
+                    plt.Circle(
+                        (
+                            entity.y,
+                            entity.x  # + side // self._scale
+                        ),
+                        entity.radius,
+                        fc='none',
+                        ec=c
+                    )
                 )
 
         plt.axis('scaled')
@@ -222,3 +259,33 @@ class HoughCircleDetector(object):
         dist = self.distance(c1, c2)
         R = c1.radius + c2.radius
         return (dist - R) < ratio * R
+
+    def can_join_components(self, c1: Circle, c2: Circle):
+        k = (c2.y - c1.y) / (c2.x - c1.x)
+        q = c1.y - k * c1.x
+
+        if c1.x < c2.x:
+            x1 = c1.x
+            x2 = c2.x
+        else:
+            x1 = c2.x
+            x2 = c1.x
+
+        if c1.y < c2.y:
+            y1 = c1.y
+            y2 = c2.y
+        else:
+            y1 = c2.y
+            y2 = c1.y
+
+        for x in range(int(x1), int(x2) + 1):
+            y = int(round(k * x + q))
+            if self._image[x, y] < self.GRADIENT_THRESHOLD:
+                return False
+
+        for y in range(int(y1), int(y2) + 1):
+            x = int(round((y - q) / k))
+            if self._image[x, y] < self.GRADIENT_THRESHOLD:
+                return False
+
+        return True
