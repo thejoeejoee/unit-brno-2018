@@ -37,10 +37,16 @@ def main() -> int:
             )
     except ImageNotFoundError as e:
         logging.error('Input image not found or is not readable.')
+        return 1
     except TiffLoadError as e:
         logging.error('Input image is not valid TIFF image.')
+        return 1
+    except IOError as e:
+        logging.error('Cannot open output file for writing.')
+        return 2
     except Exception as e:
         logging.error('Unknown error occurred: {}'.format(e))
+        return 255
 
 
 if __name__ == '__main__':
