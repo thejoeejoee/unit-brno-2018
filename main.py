@@ -9,9 +9,13 @@ from unit.processor import Processor
 
 
 def create_arg_parser() -> ArgumentParser:
-    parser = ArgumentParser()
-    parser.description = 'Command line application for detecting circled particles on TIFF image with CSV particle ' \
-                         'export. '
+    parser = ArgumentParser(
+        description="Command line application for detecting circled particles on TIFF image with CSV particle " \
+                    "export. ",
+        epilog="""
+            Authors: Josef Kolář, Son Hai Nguyen, Tina Heindlová, Jan Vykydal, MIT, 2018
+        """
+    )
     parser.add_argument('input_tiff_file', type=str, help='Path to tiff file to parse.')
     parser.add_argument('output_csv', type=str, help='Path to CSV file to generate, use - for stdout.')
 
