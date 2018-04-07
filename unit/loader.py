@@ -1,6 +1,7 @@
 # coding=utf-8
+import logging
 import os
-from typing import Generator, Iterable
+from typing import Generator
 
 import numpy as np
 from libtiff import TIFF
@@ -10,6 +11,10 @@ from .exceptions import ImageNotFoundError
 
 
 class Loader(object):
+    """
+    Class for loading TIFF images specified as paths.
+    """
+
     def __init__(self, *paths: str):
         self._paths = paths
 
@@ -24,4 +29,14 @@ class Loader(object):
                 raise TiffLoadError() from e
 
             for im in tiff.iter_images():
-                yield np.array(im, np.uint8)
+                arr = np.array(im, np.uint8)
+                if len(arr.shape) > 2:
+                    logging.warning(
+                        'Image {} has not two dimensional greyscale data, '
+                        'actually has shape of {} - filtering first dimension.'.format(
+                            path_,
+                            arr.shape
+                        ))
+                    yield arr[:, :, 0]
+
+                yield arr

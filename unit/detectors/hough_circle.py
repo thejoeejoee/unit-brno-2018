@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 from collections import defaultdict, namedtuple
 from math import pi
 from typing import DefaultDict, Dict, Iterable, Tuple, Set
@@ -9,14 +10,10 @@ from matplotlib import pyplot as plt
 Circle = namedtuple('Circle', 'x y radius')
 
 
-def show_shape(patch):
-    ax = plt.gca()
-    ax.add_patch(patch)
-
-
 class HoughCircleDetector(object):
     """
     With Hough's circle transform tries to detect main circled component on image.
+    For each of bigger components are computed "stats" about radius probability.
     """
     GRADIENT_THRESHOLD = 40
     RADIUS_RANGE = (10, 120)
@@ -58,30 +55,31 @@ class HoughCircleDetector(object):
             coss=np.cos(t),
             sins=np.sin(t),
         )
-
         for rad in range(self._radius_range[0], self._radius_range[1]):
             # accumulate all needed radiuses
+            logging.debug('Computing radius stats on level {}...'.format(rad))
             np.fromfunction(
                 np.vectorize(gen_radius_f(rad)),
                 shape=shape
             )
+
         groups = self._create_groups(over, self._grads)
         return self._generate_boxes(groups)
 
     def _create_groups(self, over: Dict[int, set], grads: np.ndarray) -> Dict[Circle, Set[Circle]]:
         entities = set()
         radius_count = len(over)
-
+        logging.debug('Removing components on sides.')
         over = {
             radius: tuple(self._remove_image_edges_components(radius, circles)) for radius, circles in over.items()
         }
 
         main_components = self._place_main_components(over, radius_count)
-
+        logging.debug('Placed {} main components.'.format(len(main_components)))
         main_components = {Circle(int(c.x), int(c.y), int(c.radius * 1.2)) for c in main_components}
 
         groups = self._place_minor_components(entities, main_components, over, radius_count)
-
+        logging.debug('Minor components placed into {} groups.'.format(len(groups)))
         color = iter(plt.cm.rainbow(np.linspace(0, 1, 100)))
 
         plt.imshow(self._image.T)
@@ -91,10 +89,11 @@ class HoughCircleDetector(object):
         # plt.show()
 
         self._join_near_main_components(groups)
+        logging.debug('Groups joined total to {}.'.format(len(groups)))
 
         # self._debug_plot_components(color, groups)
 
-        #self._debug_plot_boxes(self._generate_boxes(groups))
+        # self._debug_plot_boxes(self._generate_boxes(groups))
 
         return groups
 
@@ -105,7 +104,7 @@ class HoughCircleDetector(object):
                 if self._grads[x, y] < self.GRADIENT_THRESHOLD:
                     return False
 
-                def baf(row):
+                def accumulate(row):
                     aa = int(row[0])
                     bb = int(row[1])
                     if 0 <= aa < max_y and 0 <= bb < max_x:
@@ -135,14 +134,18 @@ class HoughCircleDetector(object):
 
                 a = x - coss * rad
                 b = y - sins * rad
-                np.apply_along_axis(baf, 1, np.dstack((a, b))[0])
+                np.apply_along_axis(accumulate, 1, np.dstack((a, b))[0])
                 return True
 
             return bucketer
 
         return gen_radius_f
 
-    def _join_near_main_components(self, groups):
+    def _join_near_main_components(self, groups: Dict[Circle, Set[Circle]]):
+        """
+        Tries to join all near main components - based od distance and collisions.
+        New created are added to groups and recurently added to possibility joins.
+        """
         to_process = set(groups.keys())
 
         while to_process:
@@ -169,6 +172,9 @@ class HoughCircleDetector(object):
                 break
 
     def _place_minor_components(self, entities, main_components, over, radius_count):
+        """
+        Tries
+        """
         groups = defaultdict(set)
         for radius in sorted(over, reverse=False)[:radius_count // 2]:
             to_process = list(over.get(radius))
@@ -177,7 +183,7 @@ class HoughCircleDetector(object):
                 x, y = to_process.pop()
                 candidate_circle = Circle(int(x), int(y), int(radius))
 
-                if any(self.is_too_near(candidate_circle, c, ratio=-.65) for c in entities):
+                if any(self.is_too_near(candidate_circle, c, ratio=-.75) for c in entities):
                     continue
                 for main in main_components:
                     if self.is_inside(
@@ -255,6 +261,8 @@ class HoughCircleDetector(object):
                 min_x = min((min_x, c.x - c.radius))
                 max_y = max((max_y, c.y + c.radius))
                 min_y = min((min_y, c.y - c.radius))
+            if not (max_y > min_y) or not (max_x > min_x):
+                continue
 
             yield (
                 min_x - side * (ratio / 2),
@@ -305,13 +313,13 @@ class HoughCircleDetector(object):
         plt.imshow(self._image)
         for rad, circles in over.items():
             for x, y in circles:
-                show_shape(plt.Circle((y, x), rad, fc='none', ec='red'))
+                self._debug_show_shape(plt.Circle((y, x), rad, fc='none', ec='red'))
         plt.axis('scaled')
         plt.show()
 
     def _debug_plot_boxes(self, boxes):
         for x, y, w, h in boxes:
-            show_shape(
+            self._debug_show_shape(
                 plt.Rectangle(
                     (x, y),
                     w,
@@ -330,7 +338,7 @@ class HoughCircleDetector(object):
 
             c = next(color)
 
-            show_shape(
+            self._debug_show_shape(
                 plt.Circle(
                     (
                         main.x,
@@ -345,7 +353,7 @@ class HoughCircleDetector(object):
             )
 
             for entity in entities:
-                show_shape(
+                self._debug_show_shape(
                     plt.Circle(
                         (
                             entity.x,
@@ -356,3 +364,8 @@ class HoughCircleDetector(object):
                         ec=c
                     )
                 )
+
+    @staticmethod
+    def _debug_show_shape(patch):
+        ax = plt.gca()
+        ax.add_patch(patch)

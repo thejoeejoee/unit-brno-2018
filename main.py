@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # coding=utf-8
+import logging
 import sys
 from argparse import ArgumentParser
 
@@ -13,8 +14,8 @@ def create_arg_parser() -> ArgumentParser:
     parser.add_argument('input_tiff_file', type=str, help='Path to tiff file to parse.')
     parser.add_argument('output_csv', type=str, help='Path to CSV file to generate, use - for stdout.')
 
-    parser.add_argument('--debug', action='store_true', default=False,
-                        help='Enable debug mode to compare particles with origin.')
+    parser.add_argument('--verbose', action='store_true', default=False,
+                        help='Enable debug mode enable verbose output.')
 
     return parser
 
@@ -24,12 +25,13 @@ def main() -> int:
     args = arg_parser.parse_args(sys.argv[1:])
 
     processor = Processor()
-    if not args.debug:
-        with open(args.output_csv, 'w') as f:
-            return processor.run(
-                args.input_tiff_file,
-                f,
-            )
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    with open(args.output_csv, 'w') as f:
+        return processor.run(
+            args.input_tiff_file,
+            f,
+        )
 
 
 if __name__ == '__main__':

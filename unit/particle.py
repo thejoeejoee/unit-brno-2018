@@ -2,6 +2,9 @@
 
 
 class Particle(object):
+    """
+    Class representing one particle detected in image.
+    """
     HEADER_FIELD_NAMES = ['Width', 'Height', 'Max Length', 'Thickness']
     width = 0  # type: int
     height = 0  # type: int
@@ -35,6 +38,10 @@ class Particle(object):
                 '{}={:3}'.format(
                     k[0],
                     str(getattr(self, k, None))
-                ) for k in sorted(dir(self)) if not k.startswith('_') and not k[0].isupper() and not callable(getattr(self, k, None))
+                ) for k in sorted(dir(self)) if
+                not k.startswith('_') and not k[0].isupper() and not callable(getattr(self, k, None))
             )
         )
+
+    def __lt__(self, other):
+        return self.width > other.width

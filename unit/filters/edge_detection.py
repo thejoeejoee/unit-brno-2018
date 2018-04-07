@@ -1,14 +1,21 @@
 # coding=utf-8
+from typing import Tuple
+
 import numpy as np
-from math import pi
 from scipy.signal import convolve2d
 
 
-def generic_filter(source: np.ndarray, filter: np.ndarray) -> np.ndarray:
-    return convolve2d(source, filter)
+def generic_filter(source: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    """
+    Generic version for 2D convolve filtration specified by filter matrix.
+    """
+    return convolve2d(source, matrix)
 
 
 def gaussian_filter(source: np.ndarray) -> np.ndarray:
+    """
+    Applies Gaussian filter with 5*5 matrix.
+    """
     return generic_filter(source, np.matrix([
         [2, 4, 5, 4, 2],
         [4, 9, 12, 9, 4],
@@ -18,26 +25,10 @@ def gaussian_filter(source: np.ndarray) -> np.ndarray:
     ])) * (1. / 159)
 
 
-def sony(source: np.ndarray):
-    print(source)
-    averaged = generic_filter(source, np.matrix([
-        [1, 1, 1],
-        [1, 0, 1],
-        [1, 1, 1]]
-    ))
-
-    def normalize(x):
-        if x == 255 * 8:
-            return 0
-        elif x == 0:
-            return 0
-        else:
-            return 255
-
-    vfunc = np.vectorize(normalize)
-    return vfunc(averaged)
-
-def sobel(source: np.ndarray):
+def sobel_gradients(source: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Computes partial derivations to detect angle gradients.
+    """
     grad_x = generic_filter(source, np.matrix([
         [1, 0, -1],
         [2, 0, -2],
@@ -64,13 +55,16 @@ def sobel(source: np.ndarray):
             return 0
 
     thetas = np.arctan2(grad_y, grad_x)
-    #thetas = np.vectorize(normalize_angle)(thetas)
+    thetas = np.vectorize(normalize_angle)(thetas)
 
     grads = np.hypot(grad_y, grad_x)
     return grads, thetas
 
 
 def high_pass(source: np.ndarray, a=1):
+    """
+    High pass filters for 2D with alpha value.
+    """
     return generic_filter(source, np.matrix([
         [-a, -a, -a],
         [-a, 9 + 8 * a, -a],

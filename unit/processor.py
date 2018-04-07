@@ -1,22 +1,19 @@
 # coding=utf-8
+import logging
 from typing import Type, TextIO, Iterable
 
-import cv2
-import matplotlib.pyplot as plt
 import numpy
-
-# from unit.detectors.gmm import GaussianMixtureModelDetector
 from scipy import ndimage
 
 from unit.detectors.hough_circle import HoughCircleDetector
 from unit.exporters.base import BaseExporter
 from unit.exporters.csv import CsvExporter
-from unit.filters.edge_detection import gaussian_filter, sobel, sony
+from unit.filters.edge_detection import gaussian_filter, sobel_gradients
 from unit.filters.erosion import erosion_filter
 from unit.filters.threshold import threshold_image
+from unit.geometry.geometry import longest_inline, longest_line, bbox2
 from unit.loader import Loader
 from unit.particle import Particle
-from unit.geometry.geometry import longest_inline, longest_line, bbox2
 
 
 class Processor(object):
@@ -37,16 +34,18 @@ class Processor(object):
     def multiple_run(self, inputs: Iterable[str], outputs: Iterable[TextIO]) -> None:
         loader = self._loader_class(*inputs)
 
-        for image, output_stream in zip(loader.load_images(), outputs):
+        for image, input_path, output_stream in zip(loader.load_images(), inputs, outputs):
+            logging.debug('Processing {}...'.format(input_path))
             particles = self._detect_particles(image=image)
             exporter = self._exporter_class(particles=particles, _file_obj=output_stream)
             exporter.export()
 
     def _detect_particles(self, image: numpy.ndarray) -> Iterable[Particle]:
+        logging.debug('Applying filters...')
         thresholded = threshold_image(image, 80)
         eroded = erosion_filter(thresholded, 23)
         gaussed = gaussian_filter(eroded)
-        grads, thetas = sobel(gaussed)
+        grads, thetas = sobel_gradients(gaussed)
 
         hough_detector = HoughCircleDetector(gaussed, grads)
         bound_boxes = hough_detector.detect()
@@ -72,8 +71,7 @@ class Processor(object):
             particle.max_length = maxi[0]
             particle.thickness = longest_inline(ndimage.interpolation.rotate(masked, maxi_angle + 90))
 
-            #print(particle.width, particle.height, particle.max_length, particle.thickness)
+            # print(particle.width, particle.height, particle.max_length, particle.thickness)
             particles.append(particle)
-
 
         return particles

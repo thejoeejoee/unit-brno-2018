@@ -2,8 +2,10 @@
 
 import numpy as np
 
-def threshold_image(image: np.ndarray, threshold: int) -> np.ndarray:
-    thresholder = lambda x: 255 if x > threshold else 0
-    vfunc = np.vectorize(thresholder)
 
-    return vfunc(image)
+def threshold_image(image: np.ndarray, threshold: int) -> np.ndarray:
+    """
+    Filters image by threshold given by parameter.
+    """
+
+    return np.vectorize(lambda x: 255 if x > threshold else 0)(image)
