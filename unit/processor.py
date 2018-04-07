@@ -42,6 +42,9 @@ class Processor(object):
 
     @staticmethod
     def _detect_particles(image: numpy.ndarray) -> Iterable[Particle]:
+        """
+        From numpy image detect main particles and returns them as iterable.
+        """
         logging.debug('Applying threshold...')
         with_threshold = threshold_image(image, 80)
         logging.debug('Applying erosion...')
@@ -58,7 +61,7 @@ class Processor(object):
 
         for x, y, width, height in bound_boxes:
             particle = Particle()
-            s = hough_detector._scale
+            s = hough_detector.scale
             masked = with_threshold[int(x) * s: int(x + width) * s, int(y) * s: int(y + height) * s]
 
             maxi = 0
@@ -69,9 +72,9 @@ class Processor(object):
                     maxi = line
                     maxi_angle = i
 
-            y, maxY, x, maxX = bbox2(masked)
-            particle.width = maxX - x
-            particle.height = maxY - y
+            y, max_Y, x, max_X = bbox2(masked)
+            particle.width = max_X - x
+            particle.height = max_Y - y
             particle.max_length = maxi[0]
             particle.thickness = longest_inline(ndimage.interpolation.rotate(masked, maxi_angle + 90))
 

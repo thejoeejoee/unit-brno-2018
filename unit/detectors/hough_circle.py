@@ -109,6 +109,7 @@ class HoughCircleDetector(object):
         """
         Create callable for walking though bevel gradients arrays and accumulating them into array.
         """
+
         def gen_radius_f(rad: int) -> Callable:
             def bucketer(x: int, y: int):
                 x, y = int(x), int(y)
@@ -295,6 +296,9 @@ class HoughCircleDetector(object):
             )
 
     def _can_join_components(self, c1: Circle, c2: Circle):
+        """
+        Detects, if two components can be joined - exists active full path on image between centers.
+        """
         u1 = (c2.x - c1.x)
         u2 = (c2.y - c1.y)
         a1 = c1.x
@@ -320,14 +324,17 @@ class HoughCircleDetector(object):
 
     @staticmethod
     def distance(c1, c2):
+        """Returns distance between centers two circles."""
         return ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2) ** .5
 
     @staticmethod
     def is_inside(main: Circle, to_check: Circle):
+        """Returns, if to_check Circle is inside of main Circle."""
         return (((main.x - to_check.x) ** 2 + (main.y - to_check.y) ** 2) ** .5) < main.radius
 
     @classmethod
     def is_too_near(cls, c1: Circle, c2: Circle, ratio: float) -> bool:
+        """Returns, if two circles has overlap higher then ration of sum of their radiuses."""
         dist = cls.distance(c1, c2)
         R = c1.radius + c2.radius
         return (dist - R) < ratio * R

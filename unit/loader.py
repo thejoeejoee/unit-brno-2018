@@ -19,6 +19,9 @@ class Loader(object):
         self._paths = paths
 
     def load_images(self) -> Generator[np.ndarray, None, None]:
+        """
+        Loads TIFF images from paths as numpy arrays.
+        """
         for path_ in self._paths:
             if not os.path.exists(path=path_):
                 raise ImageNotFoundError(path_)

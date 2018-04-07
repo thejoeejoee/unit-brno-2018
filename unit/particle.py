@@ -1,4 +1,5 @@
 # coding=utf-8
+from jedi.evaluate.jedi_typing import Iterable
 
 
 class Particle(object):
@@ -18,7 +19,7 @@ class Particle(object):
         self.thickness = thickness
 
     @classmethod
-    def from_row(cls, row):
+    def from_row(cls, row: Iterable[str]):
         if len(row) > len(cls.HEADER_FIELD_NAMES):
             row = row[1:]
 
@@ -32,7 +33,7 @@ class Particle(object):
 
         return particle
 
-    def __str__(self, *args):
+    def __str__(self):
         return 'Particle({})'.format(
             ', '.join(
                 '{}={:3}'.format(
