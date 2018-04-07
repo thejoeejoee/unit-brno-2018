@@ -10,7 +10,7 @@ def bbox2(img):
     #       y     y min       x     xmax
     return rmin, rmax, cmin, cmax
 
-def get_longest_line(source):
+def longest_line(source):
     ymin, ymax, xmin, xmax = bbox2(source)
     source = source[ymin:ymax + 1][xmin:xmax + 1]
     max_len = 0
@@ -19,11 +19,9 @@ def get_longest_line(source):
         l = np.argwhere(row > 127)
         if l.size >= 2:
             max_len = max(max_len, l[-1] - l[0])
-            if l[-1]- l[0] == 280:
-                print(l[-1], l[0])
     return max_len
 
-def get_longest_inline(source):
+def longest_inline(source):
     ymin, ymax, xmin, xmax = bbox2(source)
     source = source[ymin:ymax + 1][xmin:xmax + 1]
     max_len = 0

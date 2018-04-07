@@ -94,7 +94,7 @@ class HoughCircleDetector(object):
 
         # self._debug_plot_components(color, groups)
 
-        # self._debug_plot_boxes(boxes)
+        #self._debug_plot_boxes(self._generate_boxes(groups))
 
         return groups
 
