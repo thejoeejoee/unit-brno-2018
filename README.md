@@ -1,5 +1,5 @@
 # Detekce částic v obrazových datech z mikroskopu
-Repozitář týmu dej/uran/dom na soutěži UnIT Brno 2018
+_Repozitář týmu dej/uran/dom na soutěži UnIT Brno 2018._
 
 Aplikace pro příkazovou řádku pro rozpoznávání kruhových částic v předaném obrázku typu TIFF.
 Pro detekci hran je použita hranová funkce. Ve spolupráci s **Houghovou transformací kružnice** jsou poté odhlasovány kandidátní kružnice pro všechny částice (komponenty). Ty rozděleny na **hlavní komponenty a subkomponenty**, které jsou následně shlukovány. Výstupem jsou poté změřené částice obsažené v **rozšířených AABB boxes** (určených ze subkomponent).
