@@ -2,9 +2,11 @@
 Repozitář týmu dej/uran/dom na soutěži UnIT Brno 2018
 
 Aplikace pro příkazovou řádku pro rozpoznávání kruhových částic v předaném obrázku typu TIFF.
-Pro detekci hran je použit Bevel algoritmus ve spolupráci s Houghovou transformací kruhů.
+Pro detekci hran je použita hranová funkce. Ve spolupráci s **Houghovou transformací kružnice** jsou poté odhlasovány kandidátní kružnice pro všechny částice (komponenty). Ty rozděleny na **hlavní komponenty a subkomponenty**, které jsou následně shlukovány. Výstupem jsou poté změřené částice obsažené v **rozšířených AABB boxes** (určených ze subkomponent).
 
 # Výsledky
+Obrázek vpravo je vždy originál, vlevo jsou vizualizované výsledky - přerušované **červené obdelníky** jsou rozšířené AABB **boxy**, kružnice přerušovanou čarou jsou **hlavní komponenty** částic, kružnice plnou čarou pak **subkomponenty částic**.
+
 ![results/1_0.tif.png](/results/1_0.tif.png)
 ![results/0.tif.png](/results/0.tif.png)
 ![results/2.tif.png](/results/2.tif.png)
