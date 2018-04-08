@@ -1,4 +1,4 @@
-# Detekce kruhových částic v obrazových datech z mikroskopu
+# Detekce částic v obrazových datech z mikroskopu
 Repozitář týmu dej/uran/dom na soutěži UnIT Brno 2018
 
 Aplikace pro příkazovou řádku pro rozpoznávání kruhových částic v předaném obrázku typu TIFF.
